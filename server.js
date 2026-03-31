@@ -178,6 +178,39 @@ app.post('/api/links/:linkId/click', auth, async (req, res) => {
   }
 });
 
+// ── PUBLIC ROUTES ────────────────────────────────────────
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find({ role: 'user' }).select('-password');
+    res.json(users.map(u => ({
+      id: u._id, username: u.username, bio: u.bio, avatar: u.avatar,
+      linkCount: u.links.filter(l => l.active).length, createdAt: u.createdAt
+    })));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({
+      id: user._id, username: user.username, bio: user.bio, avatar: user.avatar,
+      profileTheme: 'default',
+      links: user.links.filter(l => l.active).sort((a, b) => a.order - b.order)
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.post('/api/users/:userId/links/:linkId/click', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const link = user.links.id(req.params.linkId);
+    if (link) { link.clicks += 1; await user.save(); }
+    res.json({ clicks: link?.clicks });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // ── ADMIN ROUTES ──────────────────────────────────────────
 app.get('/api/admin/users', auth, adminOnly, async (req, res) => {
   const users = await User.find({ role: 'user' }).select('-password');
