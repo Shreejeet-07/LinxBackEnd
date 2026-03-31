@@ -34,6 +34,14 @@ const UserSchema = new mongoose.Schema({
   photo:    { type: String, default: null },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   links:    [LinkSchema],
+  notifications: [{
+    id:        { type: String },
+    type:      { type: String },
+    linkTitle: { type: String },
+    linkIcon:  { type: String },
+    time:      { type: String },
+    read:      { type: Boolean, default: false },
+  }],
 }, { timestamps: true });
 
 const User = mongoose.model('User', UserSchema);
@@ -174,16 +182,47 @@ app.delete('/api/links/:linkId', auth, async (req, res) => {
   }
 });
 
-// track click
+// track click (authenticated)
 app.post('/api/links/:linkId/click', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     const link = user.links.id(req.params.linkId);
-    if (link) { link.clicks += 1; await user.save(); }
+    if (link) {
+      link.clicks += 1;
+      user.notifications.unshift({ id: Date.now().toString(), type: 'click', linkTitle: link.title, linkIcon: link.icon, time: new Date().toISOString(), read: false });
+      if (user.notifications.length > 50) user.notifications = user.notifications.slice(0, 50);
+      await user.save();
+    }
     res.json({ clicks: link?.clicks });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+// ── NOTIFICATIONS ROUTES ──────────────────────────────────────
+app.get('/api/notifications', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('notifications');
+    res.json(user.notifications || []);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.patch('/api/notifications/read', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    user.notifications.forEach(n => { n.read = true; });
+    await user.save();
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.delete('/api/notifications', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    user.notifications = [];
+    await user.save();
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 // ── FOUNDER PHOTOS ROUTES ─────────────────────────────────
@@ -235,7 +274,12 @@ app.post('/api/users/:userId/links/:linkId/click', async (req, res) => {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const link = user.links.id(req.params.linkId);
-    if (link) { link.clicks += 1; await user.save(); }
+    if (link) {
+      link.clicks += 1;
+      user.notifications.unshift({ id: Date.now().toString(), type: 'click', linkTitle: link.title, linkIcon: link.icon, time: new Date().toISOString(), read: false });
+      if (user.notifications.length > 50) user.notifications = user.notifications.slice(0, 50);
+      await user.save();
+    }
     res.json({ clicks: link?.clicks });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
