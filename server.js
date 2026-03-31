@@ -64,6 +64,8 @@ function adminOnly(req, res, next) {
   next();
 }
 
+
+app.get('/', (req, res) => res.json({ message: 'API is running!' })); 
 // ── AUTH ROUTES ───────────────────────────────────────────
 app.post('/api/signup', async (req, res) => {
   try {
