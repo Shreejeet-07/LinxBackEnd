@@ -31,6 +31,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   bio:      { type: String, default: '' },
   avatar:   { type: String, default: '🌟' },
+  photo:    { type: String, default: null },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   links:    [LinkSchema],
 }, { timestamps: true });
@@ -121,8 +122,8 @@ app.get('/api/me', auth, async (req, res) => {
 
 app.patch('/api/me', auth, async (req, res) => {
   try {
-    const { bio, avatar } = req.body;
-    const user = await User.findByIdAndUpdate(req.user.id, { bio, avatar }, { new: true }).select('-password');
+    const { bio, avatar, photo } = req.body;
+    const user = await User.findByIdAndUpdate(req.user.id, { bio, avatar, photo }, { new: true }).select('-password');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -211,7 +212,7 @@ app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({ role: 'user' }).select('-password');
     res.json(users.map(u => ({
-      id: u._id, username: u.username, bio: u.bio, avatar: u.avatar,
+      id: u._id, username: u.username, bio: u.bio, avatar: u.avatar, photo: u.photo || null,
       linkCount: u.links.filter(l => l.active).length, createdAt: u.createdAt
     })));
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -222,7 +223,7 @@ app.get('/api/users/:id', async (req, res) => {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({
-      id: user._id, username: user.username, bio: user.bio, avatar: user.avatar,
+      id: user._id, username: user.username, bio: user.bio, avatar: user.avatar, photo: user.photo || null,
       profileTheme: 'default',
       links: user.links.filter(l => l.active).sort((a, b) => a.order - b.order)
     });
