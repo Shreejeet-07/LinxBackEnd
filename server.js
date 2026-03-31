@@ -11,7 +11,7 @@ app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'linx_secret_2025';
 
-mongoose.connect('mongodb://127.0.0.1:27017/linx')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/linx')
   .then(() => { console.log('MongoDB connected'); seedAdmin(); })
   .catch(err => console.error('MongoDB error:', err));
 
@@ -36,6 +36,13 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const User = mongoose.model('User', UserSchema);
+
+// ── FOUNDER PHOTOS SCHEMA ─────────────────────────────────
+const FounderPhotoSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  photo: { type: String, default: null },
+});
+const FounderPhoto = mongoose.model('FounderPhoto', FounderPhotoSchema);
 
 // ── SEED ADMIN ────────────────────────────────────────────
 async function seedAdmin() {
@@ -176,6 +183,27 @@ app.post('/api/links/:linkId/click', auth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+// ── FOUNDER PHOTOS ROUTES ─────────────────────────────────
+app.get('/api/founder-photos', async (req, res) => {
+  try {
+    const photos = await FounderPhoto.find();
+    const result = {};
+    photos.forEach(p => { result[p.name] = p.photo; });
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.post('/api/founder-photos', auth, adminOnly, async (req, res) => {
+  try {
+    const { name, photo } = req.body;
+    await FounderPhoto.findOneAndUpdate({ name }, { photo }, { upsert: true, new: true });
+    const photos = await FounderPhoto.find();
+    const result = {};
+    photos.forEach(p => { result[p.name] = p.photo; });
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 // ── PUBLIC ROUTES ────────────────────────────────────────
