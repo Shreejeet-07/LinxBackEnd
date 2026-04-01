@@ -32,6 +32,7 @@ const UserSchema = new mongoose.Schema({
   bio:      { type: String, default: '' },
   avatar:   { type: String, default: '🌟' },
   photo:    { type: String, default: null },
+  profileTheme: { type: String, default: 'default' },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   links:    [LinkSchema],
   notifications: [{
@@ -130,8 +131,8 @@ app.get('/api/me', auth, async (req, res) => {
 
 app.patch('/api/me', auth, async (req, res) => {
   try {
-    const { bio, avatar, photo } = req.body;
-    const user = await User.findByIdAndUpdate(req.user.id, { bio, avatar, photo }, { new: true }).select('-password');
+    const { bio, avatar, photo, profileTheme } = req.body;
+    const user = await User.findByIdAndUpdate(req.user.id, { bio, avatar, photo, profileTheme }, { new: true }).select('-password');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -263,7 +264,7 @@ app.get('/api/users/:id', async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({
       id: user._id, username: user.username, bio: user.bio, avatar: user.avatar, photo: user.photo || null,
-      profileTheme: 'default',
+      profileTheme: user.profileTheme || 'default',
       links: user.links.filter(l => l.active).sort((a, b) => a.order - b.order)
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
