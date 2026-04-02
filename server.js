@@ -125,8 +125,9 @@ app.post('/api/login', async (req, res) => {
 
 // ── USER PROFILE ──────────────────────────────────────────
 app.get('/api/me', auth, async (req, res) => {
-  const user = await User.findById(req.user.id).select('-password');
-  res.json(user);
+  const user = await User.findById(req.user.id).select('-password -notifications -links');
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  res.json({ ...user.toObject(), id: user._id });
 });
 
 app.patch('/api/me', auth, async (req, res) => {
