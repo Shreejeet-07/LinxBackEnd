@@ -7,7 +7,8 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'linx_secret_2025';
 
@@ -133,8 +134,15 @@ app.get('/api/me', auth, async (req, res) => {
 app.patch('/api/me', auth, async (req, res) => {
   try {
     const { bio, avatar, photo, profileTheme } = req.body;
-    const user = await User.findByIdAndUpdate(req.user.id, { bio, avatar, photo, profileTheme }, { new: true }).select('-password');
-    res.json(user);
+    const updateData = { bio, avatar, profileTheme };
+    // Only update photo if provided
+    if (photo !== undefined) updateData.photo = photo;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: updateData },
+      { new: true }
+    ).select('-password -notifications');
+    res.json({ ...user.toObject(), id: user._id });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
