@@ -39,6 +39,7 @@ const UserSchema = new mongoose.Schema({
   photo:    { type: String, default: null },
   profileTheme: { type: String, default: 'default' },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
+  profileViews: { type: Number, default: 0 },
   links:    [LinkSchema],
   reviews:  [{
     name:    { type: String, required: true },
@@ -154,7 +155,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/me', auth, async (req, res) => {
   const user = await User.findById(req.user.id).select('-password -notifications -links');
   if (!user) return res.status(404).json({ message: 'User not found' });
-  res.json({ ...user.toObject(), id: user._id });
+  res.json({ ...user.toObject(), id: user._id, profileViews: user.profileViews || 0 });
 });
 
 app.patch('/api/me', auth, async (req, res) => {
@@ -297,11 +298,16 @@ app.get('/api/users', async (req, res) => {
 
 app.get('/api/users/:id', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { profileViews: 1 } },
+      { new: true }
+    ).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({
       id: user._id, username: user.username, bio: user.bio, avatar: user.avatar, photo: user.photo || null,
       profileTheme: user.profileTheme || 'default',
+      profileViews: user.profileViews || 0,
       links: user.links.filter(l => l.active).sort((a, b) => a.order - b.order)
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
