@@ -7,7 +7,11 @@ const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
 require('dotenv').config();
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  'postmessage'
+);
 
 const app = express();
 app.use(cors());
@@ -92,26 +96,41 @@ app.get('/', (req, res) => res.json({ message: 'API is running!' }));
 // ── GOOGLE AUTH ───────────────────────────────────────────
 app.post('/api/google-auth', async (req, res) => {
   try {
-    const { credential, password, username } = req.body;
-    if (!credential) return res.status(400).json({ message: 'Google credential required' });
+    const { credential, code, password, username } = req.body;
+    if (!credential && !code) return res.status(400).json({ message: 'Google credential required' });
 
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const { email, email_verified } = ticket.getPayload();
+    let email, email_verified;
+
+    if (credential) {
+      // ID token flow
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      email = payload.email;
+      email_verified = payload.email_verified;
+    } else {
+      // Authorization code flow
+      const { tokens } = await googleClient.getToken(code);
+      const ticket = await googleClient.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      email = payload.email;
+      email_verified = payload.email_verified;
+    }
 
     if (!email_verified) return res.status(400).json({ message: 'Google email not verified' });
 
     const existing = await User.findOne({ email });
 
-    // LOGIN — user already exists
     if (existing) {
       const token = jwt.sign({ id: existing._id, role: existing.role }, JWT_SECRET, { expiresIn: '7d' });
       return res.json({ token, user: { id: existing._id.toString(), username: existing.username, email: existing.email, role: existing.role, bio: existing.bio, avatar: existing.avatar } });
     }
 
-    // SIGNUP — new user, password + username required
     if (!password || !username) return res.status(202).json({ message: 'new_user', email });
 
     if (password.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' });
