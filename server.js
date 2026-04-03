@@ -262,7 +262,9 @@ app.get('/api/users', async (req, res) => {
     const users = await User.find({ role: 'user' }).select('-password');
     res.json(users.map(u => ({
       id: u._id, username: u.username, bio: u.bio, avatar: u.avatar, photo: u.photo || null,
-      linkCount: u.links.filter(l => l.active).length, createdAt: u.createdAt
+      linkCount: u.links.filter(l => l.active).length,
+      totalClicks: u.links.reduce((s, l) => s + (l.clicks || 0), 0),
+      createdAt: u.createdAt
     })));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
