@@ -10,7 +10,7 @@ require('dotenv').config();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const gemini = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const gemini = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 const app = express();
 app.use(cors());
