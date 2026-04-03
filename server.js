@@ -324,6 +324,8 @@ app.post('/api/users/:id/reviews', async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     user.reviews.unshift({ name: name.trim(), message: message.trim(), rating: rating || 5, time: new Date().toISOString() });
+    user.notifications.unshift({ id: Date.now().toString(), type: 'review', linkTitle: `${name.trim()} left you a ${rating}⭐ review: "${message.trim().slice(0, 60)}${message.length > 60 ? '...' : ''}"`, linkIcon: '💬', time: new Date().toISOString(), read: false });
+    if (user.notifications.length > 50) user.notifications = user.notifications.slice(0, 50);
     await user.save();
     res.json(user.reviews);
   } catch (err) { res.status(500).json({ message: err.message }); }
