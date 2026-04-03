@@ -108,7 +108,7 @@ app.post('/api/google-auth', async (req, res) => {
     // LOGIN — user already exists
     if (existing) {
       const token = jwt.sign({ id: existing._id, role: existing.role }, JWT_SECRET, { expiresIn: '7d' });
-      return res.json({ token, user: { id: existing._id, username: existing.username, email: existing.email, role: existing.role, bio: existing.bio, avatar: existing.avatar } });
+      return res.json({ token, user: { id: existing._id.toString(), username: existing.username, email: existing.email, role: existing.role, bio: existing.bio, avatar: existing.avatar } });
     }
 
     // SIGNUP — new user, password + username required
@@ -120,7 +120,7 @@ app.post('/api/google-auth', async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const user = await new User({ username, email, password: hashed }).save();
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, username: user.username, email: user.email, role: user.role, bio: user.bio, avatar: user.avatar } });
+    res.json({ token, user: { id: user._id.toString(), username: user.username, email: user.email, role: user.role, bio: user.bio, avatar: user.avatar } });
   } catch (err) {
     res.status(500).json({ message: 'Google auth failed', error: err.message });
   }
@@ -140,7 +140,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ message: 'Wrong password' });
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, username: user.username, email: user.email, role: user.role, bio: user.bio, avatar: user.avatar } });
+    res.json({ token, user: { id: user._id.toString(), username: user.username, email: user.email, role: user.role, bio: user.bio, avatar: user.avatar } });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
