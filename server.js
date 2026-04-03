@@ -4,6 +4,10 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const { OAuth2Client } = require('google-auth-library');
+require('dotenv').config();
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const app = express();
 app.use(cors());
@@ -83,35 +87,53 @@ function adminOnly(req, res, next) {
 }
 
 
-app.get('/', (req, res) => res.json({ message: 'API is running!' })); 
-// ── AUTH ROUTES ───────────────────────────────────────────
-app.post('/api/signup', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    if (!username || !email || !password)
-      return res.status(400).json({ message: 'All fields are required' });
+app.get('/', (req, res) => res.json({ message: 'API is running!' }));
 
-    if (await User.findOne({ email }))
-      return res.status(409).json({ message: 'Email already in use' });
-    if (await User.findOne({ username }))
-      return res.status(409).json({ message: 'Username already taken' });
+// ── GOOGLE AUTH ───────────────────────────────────────────
+app.post('/api/google-auth', async (req, res) => {
+  try {
+    const { credential, password, username } = req.body;
+    if (!credential) return res.status(400).json({ message: 'Google credential required' });
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const { email, email_verified } = ticket.getPayload();
+
+    if (!email_verified) return res.status(400).json({ message: 'Google email not verified' });
+
+    const existing = await User.findOne({ email });
+
+    // LOGIN — user already exists
+    if (existing) {
+      const token = jwt.sign({ id: existing._id, role: existing.role }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ token, user: { id: existing._id, username: existing.username, email: existing.email, role: existing.role, bio: existing.bio, avatar: existing.avatar } });
+    }
+
+    // SIGNUP — new user, password + username required
+    if (!password || !username) return res.status(202).json({ message: 'new_user', email });
+
+    if (password.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    if (await User.findOne({ username })) return res.status(409).json({ message: 'Username already taken' });
 
     const hashed = await bcrypt.hash(password, 10);
     const user = await new User({ username, email, password: hashed }).save();
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { id: user._id, username: user.username, email: user.email, role: user.role, bio: user.bio, avatar: user.avatar } });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: 'Google auth failed', error: err.message });
   }
 });
 
+// ── AUTH ROUTES ───────────────────────────────────────────
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password)
-      return res.status(400).json({ message: 'Email and password required' });
+      return res.status(400).json({ message: 'Email/username and password required' });
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ $or: [{ email }, { username: email }] });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     if (!await bcrypt.compare(password, user.password))
