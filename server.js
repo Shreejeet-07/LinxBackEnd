@@ -9,8 +9,17 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const gemini = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+async function askAI(prompt) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+    body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], max_tokens: 200 })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'AI error');
+  return data.choices[0].message.content.trim();
+}
 
 const app = express();
 app.use(cors());
@@ -362,21 +371,20 @@ app.post('/api/ai/bio', auth, async (req, res) => {
     const { username, links } = req.body;
     const linkTitles = (links || []).map(l => l.title).join(', ');
     const prompt = `Write a short catchy social media bio for a creator named "${username}" who has these links: ${linkTitles || 'no links yet'}. Keep it under 100 characters, use 1-2 emojis, make it fun and professional. Return only the bio text, nothing else.`;
-    const result = await gemini.generateContent(prompt);
-    res.json({ bio: result.response.text().trim() });
-  } catch (err) { res.status(500).json({ message: 'AI error', error: err.message }); }
+    const bio = await askAI(prompt);
+    res.json({ bio });
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 app.post('/api/ai/link-title', auth, async (req, res) => {
   try {
     const { url } = req.body;
     const prompt = `Given this URL: "${url}", suggest a short catchy link title (max 4 words) and a single relevant emoji. Return ONLY in this exact format: EMOJI Title. Example: 🎨 My Portfolio`;
-    const result = await gemini.generateContent(prompt);
-    const text = result.response.text().trim();
+    const text = await askAI(prompt);
     const emoji = text.match(/\p{Emoji_Presentation}/u)?.[0] || '🔗';
     const title = text.replace(/\p{Emoji_Presentation}/gu, '').trim();
     res.json({ title, icon: emoji });
-  } catch (err) { res.status(500).json({ message: 'AI error', error: err.message }); }
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 app.post('/api/ai/roast', auth, async (req, res) => {
@@ -384,9 +392,9 @@ app.post('/api/ai/roast', auth, async (req, res) => {
     const { username, bio, links } = req.body;
     const linkTitles = (links || []).map(l => l.title).join(', ');
     const prompt = `Roast this Linx profile in a funny but friendly way (2-3 sentences max):\nUsername: ${username}\nBio: ${bio || 'no bio'}\nLinks: ${linkTitles || 'no links'}\nBe witty and playful, not mean. Return only the roast text.`;
-    const result = await gemini.generateContent(prompt);
-    res.json({ roast: result.response.text().trim() });
-  } catch (err) { res.status(500).json({ message: 'AI error', error: err.message }); }
+    const roast = await askAI(prompt);
+    res.json({ roast });
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 // ── ADMIN ROUTES ──────────────────────────────────────────
