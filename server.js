@@ -9,8 +9,7 @@ require('dotenv').config();
 
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  'postmessage'
+  process.env.GOOGLE_CLIENT_SECRET
 );
 
 const app = express();
@@ -111,8 +110,9 @@ app.post('/api/google-auth', async (req, res) => {
       email = payload.email;
       email_verified = payload.email_verified;
     } else {
-      // Authorization code flow
-      const { tokens } = await googleClient.getToken(code);
+      // Authorization code flow — redirect_uri must match what was used in the popup
+      const redirectUri = req.headers.origin || req.headers.referer?.replace(/\/$/, '');
+      const { tokens } = await googleClient.getToken({ code, redirect_uri: redirectUri });
       const ticket = await googleClient.verifyIdToken({
         idToken: tokens.id_token,
         audience: process.env.GOOGLE_CLIENT_ID,
