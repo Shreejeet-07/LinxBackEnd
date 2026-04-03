@@ -38,6 +38,7 @@ const UserSchema = new mongoose.Schema({
   avatar:   { type: String, default: '🌟' },
   photo:    { type: String, default: null },
   profileTheme: { type: String, default: 'default' },
+  musicUrl:     { type: String, default: '' },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   profileViews: { type: Number, default: 0 },
   links:    [LinkSchema],
@@ -160,9 +161,8 @@ app.get('/api/me', auth, async (req, res) => {
 
 app.patch('/api/me', auth, async (req, res) => {
   try {
-    const { bio, avatar, photo, profileTheme } = req.body;
-    const updateData = { bio, avatar, profileTheme };
-    // Only update photo if provided
+    const { bio, avatar, photo, profileTheme, musicUrl } = req.body;
+    const updateData = { bio, avatar, profileTheme, musicUrl };
     if (photo !== undefined) updateData.photo = photo;
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -308,6 +308,7 @@ app.get('/api/users/:id', async (req, res) => {
       id: user._id, username: user.username, bio: user.bio, avatar: user.avatar, photo: user.photo || null,
       profileTheme: user.profileTheme || 'default',
       profileViews: user.profileViews || 0,
+      musicUrl: user.musicUrl || '',
       links: user.links.filter(l => l.active).sort((a, b) => a.order - b.order)
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
