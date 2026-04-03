@@ -322,6 +322,18 @@ app.get('/api/admin/users', auth, adminOnly, async (req, res) => {
   res.json(users);
 });
 
+app.post('/api/admin/broadcast', auth, adminOnly, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message?.trim()) return res.status(400).json({ message: 'Message is required' });
+    const notif = { id: Date.now().toString(), type: 'announcement', linkTitle: message.trim(), linkIcon: '📢', time: new Date().toISOString(), read: false };
+    await User.updateMany({ role: 'user' }, { $push: { notifications: { $each: [notif], $position: 0 } } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.delete('/api/admin/users/:id', auth, adminOnly, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
