@@ -347,4 +347,10 @@ const buildPath = path.join(__dirname, '../Frontend/build');
 app.use(express.static(buildPath));
 app.get('*path', (req, res) => res.sendFile(path.join(buildPath, 'index.html')));
 
-app.listen(5000, () => console.log('Server running on port 5000'));
+app.listen(5000, () => {
+  console.log('Server running on port 5000');
+  // Keep Render free tier alive by self-pinging every 14 minutes
+  setInterval(() => {
+    fetch('https://linxbackend.onrender.com/').catch(() => {});
+  }, 14 * 60 * 1000);
+});
