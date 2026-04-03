@@ -40,6 +40,12 @@ const UserSchema = new mongoose.Schema({
   profileTheme: { type: String, default: 'default' },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   links:    [LinkSchema],
+  reviews:  [{
+    name:    { type: String, required: true },
+    message: { type: String, required: true },
+    rating:  { type: Number, default: 5 },
+    time:    { type: String },
+  }],
   notifications: [{
     id:        { type: String },
     type:      { type: String },
@@ -298,6 +304,28 @@ app.get('/api/users/:id', async (req, res) => {
       profileTheme: user.profileTheme || 'default',
       links: user.links.filter(l => l.active).sort((a, b) => a.order - b.order)
     });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// ── REVIEWS ROUTES ─────────────────────────────────────────
+app.get('/api/users/:id/reviews', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('reviews');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user.reviews || []);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.post('/api/users/:id/reviews', async (req, res) => {
+  try {
+    const { name, message, rating } = req.body;
+    if (!name?.trim() || !message?.trim()) return res.status(400).json({ message: 'Name and message required' });
+    if (rating < 1 || rating > 5) return res.status(400).json({ message: 'Rating must be 1-5' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.reviews.unshift({ name: name.trim(), message: message.trim(), rating: rating || 5, time: new Date().toISOString() });
+    await user.save();
+    res.json(user.reviews);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
