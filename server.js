@@ -7,10 +7,7 @@ const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
 require('dotenv').config();
 
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET
-);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const app = express();
 app.use(cors());
@@ -95,32 +92,14 @@ app.get('/', (req, res) => res.json({ message: 'API is running!' }));
 // ── GOOGLE AUTH ───────────────────────────────────────────
 app.post('/api/google-auth', async (req, res) => {
   try {
-    const { credential, code, password, username } = req.body;
-    if (!credential && !code) return res.status(400).json({ message: 'Google credential required' });
+    const { credential, password, username } = req.body;
+    if (!credential) return res.status(400).json({ message: 'Google credential required' });
 
-    let email, email_verified;
-
-    if (credential) {
-      // ID token flow
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-      const payload = ticket.getPayload();
-      email = payload.email;
-      email_verified = payload.email_verified;
-    } else {
-      // Authorization code flow — redirect_uri must match what was used in the popup
-      const redirectUri = req.headers.origin || req.headers.referer?.replace(/\/$/, '');
-      const { tokens } = await googleClient.getToken({ code, redirect_uri: redirectUri });
-      const ticket = await googleClient.verifyIdToken({
-        idToken: tokens.id_token,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-      const payload = ticket.getPayload();
-      email = payload.email;
-      email_verified = payload.email_verified;
-    }
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const { email, email_verified } = ticket.getPayload();
 
     if (!email_verified) return res.status(400).json({ message: 'Google email not verified' });
 
